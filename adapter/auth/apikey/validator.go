@@ -12,7 +12,6 @@ import (
 type ApiKeyValidator struct {
 	Header string
 	Prefix string
-	Key    string
 }
 
 func NewApiKeyValidator(config config.AuthConfig) *ApiKeyValidator {
@@ -34,36 +33,31 @@ func (a *ApiKeyValidator) GetAuthSession() auth.IAuthSession {
 	return nil
 }
 
-func (a *ApiKeyValidator) ValidateKey(ctx *fiber.Ctx) error {
+func (a *ApiKeyValidator) ValidateKey(ctx *fiber.Ctx) (string, error) {
 	apiKey := ctx.Get(a.Header)
 	if apiKey == "" {
 		// Coba dapatkan dari Authorization
 		authHeader := ctx.Get("Authorization")
 		if authHeader == "" {
-			return fmt.Errorf("Authorization header required")
+			return "", fmt.Errorf("Authorization header required")
 		}
 
 		// konten dimulai dengan prefiks "APIKey "
 		if strings.HasPrefix(authHeader, "APIKey ") {
 			apiKey = strings.TrimPrefix(authHeader, "APIKey ")
 		} else {
-			return fmt.Errorf("Required prefix in Authorization header is missing")
+			return "", fmt.Errorf("Required prefix in Authorization header is missing")
 		}
 	}
 
 	if a.Prefix != "" {
 		if !strings.HasPrefix(apiKey, a.Prefix) {
-			return fmt.Errorf("Required prefix in Authorization header is missing")
+			return "", fmt.Errorf("Required prefix in Authorization header is missing")
 		}
 		apiKey = strings.TrimPrefix(apiKey, a.Prefix)
 	}
 
-	a.Key = apiKey
-	return nil
-}
-
-func (a *ApiKeyValidator) GetValue() string {
-	return a.Key
+	return apiKey, nil
 }
 
 func (a *ApiKeyValidator) VerifyUser(ctx *fiber.Ctx, userKey string, userInfo auth.IUserAuthInfo) (bool, error) {

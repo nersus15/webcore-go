@@ -8,17 +8,17 @@ import (
 )
 
 type IStore interface {
-	GetUserLoginInfo(ctx *fiber.Ctx, username string, password string) (IUserAuthInfo, error) // digunakan saat login
-	GetUserAuthInfo(ctx *fiber.Ctx, validator IAuthValidator) (IUserAuthInfo, error)          // digunakan untuk verifikasi userkey
+	GetUserLoginInfo(ctx *fiber.Ctx, username string, password string) (IUserAuthInfo, error)        // digunakan saat login
+	GetUserAuthInfo(ctx *fiber.Ctx, validator IAuthValidator, userKey string) (IUserAuthInfo, error) // digunakan untuk verifikasi userkey
 	GetResourceInfo(method string, path string) (IResourceInfo, error)
 }
 
+// IStoreWrapper mengembalikan hasil pencarian, tidak menyimpannya. StoreWrapper
+// dipakai bersama seluruh request, jadi hasil milik satu request tidak boleh
+// mengendap di sana.
 type IStoreWrapper interface {
-	CheckUser(ctx *fiber.Ctx, validator IAuthValidator) error
-	GetLoadedUser() IUserAuthInfo
-
-	CheckResource(method string, path string) (bool, error)
-	GetLoadedResource() IResourceInfo
+	CheckUser(ctx *fiber.Ctx, validator IAuthValidator, userKey string) (IUserAuthInfo, error)
+	CheckResource(method string, path string) (IResourceInfo, error)
 }
 
 type IAuthStore interface {
@@ -26,9 +26,7 @@ type IAuthStore interface {
 }
 
 type StoreWrapper struct {
-	Store    IStore
-	User     IUserAuthInfo
-	Resource IResourceInfo
+	Store IStore
 }
 
 func NewStoreWrapper(store IStore) *StoreWrapper {
@@ -37,32 +35,21 @@ func NewStoreWrapper(store IStore) *StoreWrapper {
 	}
 }
 
-func (u *StoreWrapper) CheckUser(ctx *fiber.Ctx, validator IAuthValidator) error {
-	userKey := validator.GetValue()
-	info, err := u.Store.GetUserAuthInfo(ctx, validator) // mencari user aktif
+func (u *StoreWrapper) CheckUser(ctx *fiber.Ctx, validator IAuthValidator, userKey string) (IUserAuthInfo, error) {
+	info, err := u.Store.GetUserAuthInfo(ctx, validator, userKey) // mencari user aktif
 	if err != nil {
-		return fmt.Errorf("User not found: %s", userKey)
+		return nil, fmt.Errorf("User not found: %s", userKey)
 	}
 
-	u.User = info
-	return nil
+	return info, nil
 }
 
-func (u *StoreWrapper) CheckResource(method string, path string) (bool, error) {
-	info, err := u.Store.GetResourceInfo(method, path) // mencari user aktif
+func (u *StoreWrapper) CheckResource(method string, path string) (IResourceInfo, error) {
+	info, err := u.Store.GetResourceInfo(method, path)
 	if err != nil {
 		logger.Info(err.Error(), "method", method, "path", path)
-		return false, err
+		return nil, err
 	}
 
-	u.Resource = info
-	return true, nil
-}
-
-func (u *StoreWrapper) GetLoadedUser() IUserAuthInfo {
-	return u.User
-}
-
-func (u *StoreWrapper) GetLoadedResource() IResourceInfo {
-	return u.Resource
+	return info, nil
 }

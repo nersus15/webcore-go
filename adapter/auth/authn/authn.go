@@ -1,12 +1,12 @@
 package authn
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/webcore-go/webcore/adapter/authsession/session"
 	"github.com/webcore-go/webcore/app/core"
-	"github.com/webcore-go/webcore/app/out"
 	"github.com/webcore-go/webcore/infra/config"
 	"github.com/webcore-go/webcore/infra/logger"
 	"github.com/webcore-go/webcore/port/auth"
@@ -83,16 +83,35 @@ func (a *AuthN) Install(args ...any) error {
 
 func (a *AuthN) GetAuthenticatonHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		if err := a.Validator.ValidateKey(c); err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(out.Error(fiber.StatusUnauthorized, 2, "UNAUTHORIZED", err.Error()))
+		// 401: kredensial tidak ada atau bentuknya salah.
+		// userKey dan user adalah variabel lokal, jadi milik request ini saja.
+		userKey, err := a.Validator.ValidateKey(c)
+		if err != nil {
+			return auth.Deny(c, fiber.StatusUnauthorized, auth.ErrCodeUnauthorized, "UNAUTHORIZED", err.Error())
 		}
 
-		if err := a.Authenticator.Check(c); err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(out.Error(fiber.StatusUnauthorized, 2, "UNAUTHORIZED", err.Error()))
+		// 401: kredensial ada, tapi tidak dikenali.
+		user, err := a.Authenticator.Check(c, userKey)
+		if err != nil {
+			return auth.Deny(c, fiber.StatusUnauthorized, auth.ErrCodeUnauthorized, "UNAUTHORIZED", err.Error())
 		}
 
-		if err := a.Authorizer.Check(a.Authenticator.AuthStore.GetLoadedUser(), c.Method(), c.Path()); err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(out.Error(fiber.StatusUnauthorized, 2, "UNAUTHORIZED", err.Error()))
+		// Satu-satunya tempat identitas diterbitkan ke konteks request, berlaku
+		// untuk semua jenis auth. Validator tidak perlu tahu soal ini.
+		auth.PublishIdentity(c, a.Validator.Name(), userKey, user)
+
+		if err := a.Authorizer.Check(user, c.Method(), c.Path()); err != nil {
+			// 403: pemanggil dikenali, haknya kurang. Mengulang tidak menolong.
+			if errors.Is(err, auth.ErrAccessDenied) {
+				return auth.Deny(c, fiber.StatusForbidden, auth.ErrCodeForbidden, "FORBIDDEN", err.Error())
+			}
+
+			// Sisanya masalah di sisi layanan -- query gagal, atau konfigurasi
+			// RBAC/ABAC tidak cocok. Sebabnya masuk log, bukan ke klien.
+			logger.Error("Otorisasi gagal",
+				"method", c.Method(), "path", c.Path(), "error", err.Error())
+			return auth.Deny(c, fiber.StatusInternalServerError, auth.ErrCodeInternal,
+				"INTERNAL_ERROR", "Terjadi kesalahan")
 		}
 
 		return c.Next()

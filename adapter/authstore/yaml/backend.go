@@ -95,12 +95,10 @@ func (y *AuthStoreYAML) GetUserLoginInfo(ctx *fiber.Ctx, username string, passwo
 	return nil, fmt.Errorf("Invalid client id (username) or secret (password)!")
 }
 
-func (y *AuthStoreYAML) GetUserAuthInfo(ctx *fiber.Ctx, validator auth.IAuthValidator) (auth.IUserAuthInfo, error) {
+func (y *AuthStoreYAML) GetUserAuthInfo(ctx *fiber.Ctx, validator auth.IAuthValidator, userKey string) (auth.IUserAuthInfo, error) {
 	if !y.Loaded {
 		return nil, fmt.Errorf("File access.yaml gagal dimuat")
 	}
-
-	userKey := validator.GetValue()
 
 	var err1 error
 	for _, info := range y.Storage.Users {

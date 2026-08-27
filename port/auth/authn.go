@@ -13,8 +13,10 @@ type IAuthenticationManager interface {
 
 type IAuthValidator interface {
 	Name() string
-	GetValue() string
-	ValidateKey(ctx *fiber.Ctx) error
+	// ValidateKey mengembalikan kunci milik request ini. Kunci tidak boleh
+	// disimpan sebagai field: satu validator dipakai bersama seluruh request,
+	// sehingga field akan tertimpa request lain sebelum sempat dibaca.
+	ValidateKey(ctx *fiber.Ctx) (string, error)
 	VerifyUser(ctx *fiber.Ctx, userKey string, userInfo IUserAuthInfo) (bool, error)
 	IsRequireLogin() bool
 	GetAuthSession() IAuthSession
@@ -82,19 +84,17 @@ func (a *Authenticator) Logout(ctx *fiber.Ctx) error {
 	return fmt.Errorf("Refresh Token operation not supported for this Authentication scheme")
 }
 
-func (a *Authenticator) Check(ctx *fiber.Ctx) error {
-	// userKey := a.Validator.GetValue()
-	err := a.AuthStore.CheckUser(ctx, a.Validator)
+func (a *Authenticator) Check(ctx *fiber.Ctx, userKey string) (IUserAuthInfo, error) {
+	userInfo, err := a.AuthStore.CheckUser(ctx, a.Validator, userKey)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	userInfo := a.AuthStore.GetLoadedUser()
 	if userInfo == nil {
-		return fmt.Errorf("User not found: nil")
+		return nil, fmt.Errorf("User not found: nil")
 	}
 
-	return nil
+	return userInfo, nil
 }
 
 func (a *Authenticator) GetLoginRequest(ctx *fiber.Ctx) (string, string, error) {

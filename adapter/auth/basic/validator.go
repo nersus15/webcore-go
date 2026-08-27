@@ -13,7 +13,6 @@ import (
 type BasicAuthValidator struct {
 	Header string
 	Prefix string
-	Key    string
 }
 
 func (a *BasicAuthValidator) Name() string {
@@ -28,28 +27,19 @@ func (a *BasicAuthValidator) GetAuthSession() auth.IAuthSession {
 	return nil
 }
 
-func (a *BasicAuthValidator) ValidateKey(ctx *fiber.Ctx) error {
-	var apiKey string
-
+func (a *BasicAuthValidator) ValidateKey(ctx *fiber.Ctx) (string, error) {
 	// Coba dapatkan dari Authorization
 	authHeader := ctx.Get("Authorization")
 	if authHeader == "" {
-		return fmt.Errorf("Authorization header required")
+		return "", fmt.Errorf("Authorization header required")
 	}
 
 	// konten dimulai dengan prefiks "Basic "
-	if strings.HasPrefix(authHeader, "Basic ") {
-		apiKey = strings.TrimPrefix(authHeader, "Basic ")
-	} else {
-		return fmt.Errorf("Required prefix in Authorization header is missing")
+	if !strings.HasPrefix(authHeader, "Basic ") {
+		return "", fmt.Errorf("Required prefix in Authorization header is missing")
 	}
 
-	a.Key = apiKey
-	return nil
-}
-
-func (a *BasicAuthValidator) GetValue() string {
-	return a.Key
+	return strings.TrimPrefix(authHeader, "Basic "), nil
 }
 
 func (a *BasicAuthValidator) GetUserPassword(userKey string) (string, string) {

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -8,6 +9,20 @@ import (
 
 	"github.com/webcore-go/webcore/infra/logger"
 	"github.com/webcore-go/webcore/port"
+)
+
+// ErrAccessDenied menandai penolakan karena hak kurang -- pemanggil sudah
+// dikenali, tapi tidak boleh. Dibedakan dari kegagalan lain di jalur otorisasi
+// (query gagal, konfigurasi RBAC/ABAC tidak cocok) yang merupakan masalah di
+// sisi layanan. Handler memakai errors.Is untuk memilih 403 atau 500.
+var ErrAccessDenied = errors.New("User access denied")
+
+// Kode error yang dikirim ke klien untuk kegagalan auth. Angkanya mengikuti
+// katalog layanan di errors.md: 4xxx = kredensial atau hak.
+const (
+	ErrCodeUnauthorized = 4001 // kredensial tidak ada, salah, atau kedaluwarsa
+	ErrCodeForbidden    = 4002 // kredensial sah, hak kurang
+	ErrCodeInternal     = 5001 // kegagalan di sisi layanan
 )
 
 type IAuthorizationManager interface {
@@ -31,16 +46,13 @@ func NewAuthorization(loader IStoreWrapper) (*Authorization, error) {
 }
 
 func (a *Authorization) Check(user IUserAuthInfo, method string, path string) error {
-	ok, err := a.Loader.CheckResource(method, path)
+	resourceInfo, err := a.Loader.CheckResource(method, path)
 	if err != nil {
 		return err
 	}
 
-	if ok {
-		resourceInfo := a.Loader.GetLoadedResource()
-		if resourceInfo != nil {
-			return resourceInfo.IsUserPermitted(user)
-		}
+	if resourceInfo != nil {
+		return resourceInfo.IsUserPermitted(user)
 	}
 
 	// defaulf permission untuk resource yang tidak memiliki permission
@@ -108,7 +120,7 @@ func (r1 *ResourceInfoRBAC) IsUserPermitted(user IUserAuthInfo) error {
 	}
 
 	// The user has no roles that grant access to this resource.
-	return fmt.Errorf("User access denied")
+	return ErrAccessDenied
 }
 
 type ResourceInfoABAC struct {
@@ -163,7 +175,7 @@ func (r2 *ResourceInfoABAC) IsUserPermitted(user IUserAuthInfo) error {
 		}
 	}
 
-	return fmt.Errorf("User access denied")
+	return ErrAccessDenied
 }
 
 func (r2 *ResourceInfoABAC) IsAccessGranted(userPolicy PolicyABAC, policies []PolicyABAC) bool {
