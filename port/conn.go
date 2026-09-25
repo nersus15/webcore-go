@@ -42,6 +42,7 @@ type ICacheMemory interface {
 
 	Set(key string, value any, ttl time.Duration) error
 	Get(key string, outvalue any) bool
+	Delete(key string) error
 }
 
 type IPubSub interface {

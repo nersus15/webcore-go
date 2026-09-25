@@ -16,22 +16,12 @@ type IUserAuthInfo interface {
 	GetUserID() string
 }
 
-// Kunci identitas di fiber.Ctx. Ditulis satu kali oleh handler autentikasi,
-// bukan oleh masing-masing validator: mencampur "verifikasi kredensial" dengan
-// "mengisi konteks request" membuat setiap jenis auth baru harus ingat
-// melakukan keduanya -- dan apikey maupun basic dulu lupa.
 const (
 	LocalsAuthType = "auth_type"
 	LocalsUser     = "auth_user"
 	LocalsAuthKey  = "auth_key"
 )
 
-// PublishIdentity menaruh identitas request pada konteksnya. Dipanggil dari
-// satu tempat saja, sesudah autentikasi berhasil.
-//
-// userKey adalah kredensial mentah. Ia tidak menambah paparan -- handler sudah
-// bisa membacanya dari header -- tapi jangan ikut sertakan saat menuangkan
-// Locals ke log.
 func PublishIdentity(c *fiber.Ctx, authType string, userKey string, user IUserAuthInfo) {
 	c.Locals(LocalsAuthType, authType)
 	c.Locals(LocalsAuthKey, userKey)
@@ -67,6 +57,13 @@ func GetUserRoles(c *fiber.Ctx) []string {
 	return nil
 }
 
+func GetUserGroups(c *fiber.Ctx) []string {
+	if u, ok := GetUser(c).(*UserAuthInfoRBAC); ok {
+		return u.Groups
+	}
+	return nil
+}
+
 // GetUserPolicies hanya terisi untuk kontrol akses ABAC.
 func GetUserPolicies(c *fiber.Ctx) []PolicyABAC {
 	if u, ok := GetUser(c).(*UserAuthInfoABAC); ok {
@@ -85,14 +82,6 @@ func GetAPIKey(c *fiber.Ctx) string {
 	return k
 }
 
-// HasPolicyAction melaporkan apakah pemanggil punya kebijakan ABAC Allow untuk
-// aksi tersebut.
-//
-// Kebijakan bersyarat (punya Condition) TIDAK diberi lolos di sini, karena
-// syaratnya butuh atribut resource yang tidak tersedia di titik ini. Menilainya
-// tanpa data lengkap berarti memberi akses yang tidak dimaksudkan kebijakan itu,
-// jadi bila ragu jawabannya tidak. Kebijakan bersyarat dinilai
-// Authorization.Check lewat access.auth_resources, yang punya konteksnya.
 func HasPolicyAction(c *fiber.Ctx, aksi string) bool {
 	for _, p := range GetUserPolicies(c) {
 		if p.Effect != "Allow" || len(p.Condition) > 0 {
