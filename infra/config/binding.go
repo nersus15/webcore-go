@@ -30,6 +30,9 @@ func (c *Config) SetEnvBindings() map[string]string {
 		"app.cors.max_age":                    "APP_CORS_MAX_AGE",
 		"app.rate_limit.enabled":              "APP_RATE_LIMIT_ENABLED",
 		"app.rate_limit.max":                  "APP_RATE_LIMIT_MAX",
+		"app.rate_limit.window":               "APP_RATE_LIMIT_WINDOW",
+		"app.rate_limit.backend":              "APP_RATE_LIMIT_BACKEND",
+		"app.rate_limit.fail_open":            "APP_RATE_LIMIT_FAIL_OPEN",
 		"app.module.base_path":                "APP_MODULE_BASE_PATH",
 		"app.module.disabled":                 "APP_MODULE_DISABLED",
 
@@ -39,6 +42,7 @@ func (c *Config) SetEnvBindings() map[string]string {
 		"server.path":          "SERVER_PATH",
 		"server.read_timeout":  "SERVER_READ_TIMEOUT",
 		"server.write_timeout": "SERVER_WRITE_TIMEOUT",
+		"server.proxy_header":  "SERVER_PROXY_HEADER",
 
 		// Auth
 		"auth.directory":             "AUTH_DIRECTORY",

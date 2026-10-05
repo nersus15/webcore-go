@@ -74,9 +74,6 @@ func SetupGlobalMiddleware(app *fiber.App, cfg *config.Config) {
 		app.Use(AdditionalHeadersMiddleware(cfg.App.AdditionalHeaders))
 	}
 
-	if cfg.App.RateLimit.Enabled {
-		app.Use(DefaultRateLimit(cfg.App.RateLimit))
-	}
 }
 
 // SecurityHeadersMiddleware adds security headers

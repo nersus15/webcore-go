@@ -10,6 +10,7 @@ import (
 	"github.com/webcore-go/webcore/infra/config"
 	"github.com/webcore-go/webcore/infra/logger"
 	"github.com/webcore-go/webcore/infra/middleware"
+	"github.com/webcore-go/webcore/port"
 	"github.com/webcore-go/webcore/port/auth"
 )
 
@@ -146,8 +147,59 @@ func (a *App) setupAuthMiddleware() {
 	}
 
 	// Apply authentication to protected routes
-	a.Context.Root = a.Context.Web.Group(a.Context.Config.Server.PathPrefix, handler)
+	handlers := []fiber.Handler{handler}
+	if limiter := a.setupRateLimit(); limiter != nil {
+		handlers = append(handlers, limiter)
+	}
+	a.Context.Root = a.Context.Web.Group(a.Context.Config.Server.PathPrefix, handlers...)
 	a.Context.AuthHandler = handler
+}
+
+func (a *App) setupRateLimit() fiber.Handler {
+	cfg := a.Context.Config.App.RateLimit
+	if !cfg.Enabled {
+		return nil
+	}
+	if cfg.Max <= 0 {
+		logger.Fatal("Rate limit aktif tetapi app.rate_limit.max <= 0", "max", cfg.Max)
+	}
+	if cfg.Window <= 0 {
+		logger.Fatal("Rate limit aktif tetapi app.rate_limit.window <= 0", "window", cfg.Window)
+	}
+	if a.Context.Config.Auth.Type == "none" {
+		logger.Warn("Rate limit aktif tetapi auth.type none: kuota dihitung per identitas, jadi tidak ada request yang dibatasi")
+	}
+
+	var store port.IRateLimitStore
+	switch cfg.Backend {
+	case "", "memory":
+		mem := middleware.NewMemoryRateLimitStore()
+		mem.StartCleanup(a.Context.Context, cfg.Window)
+		store = mem
+	case "redis":
+		lib, ok := a.Context.GetSingletonInstance("redis")
+		if !ok {
+			lib, ok = a.Context.GetSingletonInstance("cache:redis")
+		}
+		if !ok {
+			logger.Fatal("Rate limit backend redis membutuhkan library redis yang sudah dimuat (isi konfigurasi redis.host)")
+		}
+		s, ok := lib.(port.IRateLimitStore)
+		if !ok {
+			logger.Fatal("Library redis yang dimuat tidak mendukung rate limit")
+		}
+		store = s
+	default:
+		logger.Fatal("app.rate_limit.backend tidak dikenal", "backend", cfg.Backend)
+	}
+
+	logger.Info("Rate limit aktif", "backend", cfg.Backend, "max", cfg.Max, "window", cfg.Window, "fail_open", cfg.FailOpen)
+
+	return middleware.NewRateLimit(store, middleware.RateLimitOptions{
+		Limit:    int64(cfg.Max),
+		Window:   cfg.Window,
+		FailOpen: cfg.FailOpen,
+	})
 }
 
 // setupRoutes sets up application routes

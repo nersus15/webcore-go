@@ -33,8 +33,11 @@ type AppConfig struct {
 }
 
 type RateLimitConfig struct {
-	Enabled bool `mapstructure:"enabled"`
-	Max     int  `mapstructure:"max"`
+	Enabled  bool          `mapstructure:"enabled"`
+	Max      int           `mapstructure:"max"`
+	Window   time.Duration `mapstructure:"window"`
+	Backend  string        `mapstructure:"backend"` // memory | redis
+	FailOpen bool          `mapstructure:"fail_open"`
 }
 
 type FeaturesConfig struct {
@@ -76,6 +79,7 @@ type ServerConfig struct {
 	PathPrefix   string        `mapstructure:"path"`
 	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`
+	ProxyHeader  string        `mapstructure:"proxy_header"` // header berisi IP klien dari proxy, kosong = alamat koneksi
 }
 
 type DatabaseConfig struct {
@@ -210,7 +214,7 @@ func (c *Config) GetOtherItem(key string) (ConfigObject, bool) {
 }
 
 func (c *Config) GetFiberConfig(errorHandler fiber.ErrorHandler) fiber.Config {
-	return fiber.Config{
+	cfg := fiber.Config{
 		ReadTimeout:   c.Server.ReadTimeout,
 		WriteTimeout:  c.Server.WriteTimeout,
 		CaseSensitive: true,
@@ -221,4 +225,11 @@ func (c *Config) GetFiberConfig(errorHandler fiber.ErrorHandler) fiber.Config {
 		JSONEncoder: helper.JSONMarshal,
 		JSONDecoder: helper.JSONUnmarshal,
 	}
+
+	if c.Server.ProxyHeader != "" {
+		cfg.ProxyHeader = c.Server.ProxyHeader
+		cfg.EnableIPValidation = true
+	}
+
+	return cfg
 }

@@ -416,32 +416,53 @@ The response includes pagination links for easy navigation:
 
 ## Rate Limiting
 
-The API implements rate limiting to prevent abuse. The default limits are:
+Rate limiting is applied per authenticated identity (user ID, or the API key
+when no user ID is available). It runs after authentication on the protected
+route group, so:
 
-- 100 requests per minute per IP address
-- 1000 requests per hour per IP address
+- requests with a missing or invalid credential are rejected by authentication
+  (401) and never create a rate-limit bucket;
+- public routes outside the protected group (health checks, docs) are not
+  limited;
+- with `auth.type: none` there is no identity, so nothing is limited (a warning
+  is logged at startup).
+
+The algorithm is a sliding window counter: no 2x burst at window boundaries.
+
+### Configuration
+
+```yaml
+app:
+  rate_limit:
+    enabled: true
+    max: 1000        # requests per window per identity
+    window: 1m
+    backend: memory  # memory: per process | redis: shared across pods
+    fail_open: true  # when redis is unreachable: true lets requests through, false returns 503
+```
+
+`backend: redis` uses the loaded `cache:redis` library (requires `redis.host`),
+so every pod counts against the same quota. Startup fails when `max <= 0`,
+`window <= 0`, or the backend is unknown.
 
 ### Rate Limit Headers
 
-Each response includes rate limit headers:
+Responses on the protected group include:
 
 ```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1642348800
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 995
+X-RateLimit-Reset: 2026-10-05T10:01:00Z
 ```
 
 ### Rate Limit Response
 
-When the rate limit is exceeded, the API returns:
+When the quota is exhausted the API returns `429`:
 
 ```json
 {
-  "error": {
-    "code": 429,
-    "message": "Too Many Requests",
-    "details": "Rate limit exceeded. Try again later."
-  }
+  "error": "Rate limit exceeded",
+  "message": "Too many requests. Please try again later."
 }
 ```
 

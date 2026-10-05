@@ -30,6 +30,9 @@ func (c *Config) SetDefaults() map[string]any {
 		"app.cors.max_age":                    "24h", // 24 hours
 		"app.rate_limit.enabled":              false,
 		"app.rate_limit.max":                  1000,
+		"app.rate_limit.window":               "1m",
+		"app.rate_limit.backend":              "memory",
+		"app.rate_limit.fail_open":            true,
 		"app.module.base_path":                "./libs",
 		"app.module.disabled":                 []string{},
 
@@ -39,6 +42,7 @@ func (c *Config) SetDefaults() map[string]any {
 		"server.path":          "/api",
 		"server.read_timeout":  "30s",
 		"server.write_timeout": "30s",
+		"server.proxy_header":  "",
 
 		// Auth
 		"auth.directory":             ".",
