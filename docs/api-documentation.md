@@ -441,8 +441,10 @@ app:
     fail_open: true  # when redis is unreachable: true lets requests through, false returns 503
 ```
 
-`backend: redis` uses the loaded `cache:redis` library (requires `redis.host`),
-so every pod counts against the same quota. Startup fails when `max <= 0`,
+`backend: memory` uses the loaded `cache:memory` library (`memory.enabled: true`)
+and falls back to an in-process store when it is not loaded; either way the
+quota is per pod. `backend: redis` uses the loaded `cache:redis` library
+(requires `redis.host`), so every pod counts against the same quota. Startup fails when `max <= 0`,
 `window <= 0`, or the backend is unknown.
 
 ### Rate Limit Headers

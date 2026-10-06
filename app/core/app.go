@@ -173,27 +173,24 @@ func (a *App) setupRateLimit() fiber.Handler {
 	var store port.IRateLimitStore
 	switch cfg.Backend {
 	case "", "memory":
-		mem := middleware.NewMemoryRateLimitStore()
-		mem.StartCleanup(a.Context.Context, cfg.Window)
-		store = mem
+		if s, ok := a.rateLimitStore("memory", "cache:memory"); ok {
+			store = s
+		} else {
+			mem := middleware.NewMemoryRateLimitStore()
+			mem.StartCleanup(a.Context.Context, cfg.Window)
+			store = mem
+		}
 	case "redis":
-		lib, ok := a.Context.GetSingletonInstance("redis")
+		s, ok := a.rateLimitStore("redis", "cache:redis")
 		if !ok {
-			lib, ok = a.Context.GetSingletonInstance("cache:redis")
-		}
-		if !ok {
-			logger.Fatal("Rate limit backend redis membutuhkan library redis yang sudah dimuat (isi konfigurasi redis.host)")
-		}
-		s, ok := lib.(port.IRateLimitStore)
-		if !ok {
-			logger.Fatal("Library redis yang dimuat tidak mendukung rate limit")
+			logger.Fatal("Rate limit backend redis membutuhkan library redis yang sudah dimuat dan mendukung rate limit (isi konfigurasi redis.host)")
 		}
 		store = s
 	default:
 		logger.Fatal("app.rate_limit.backend tidak dikenal", "backend", cfg.Backend)
 	}
 
-	logger.Info("Rate limit aktif", "backend", cfg.Backend, "max", cfg.Max, "window", cfg.Window, "fail_open", cfg.FailOpen)
+	logger.Info("Rate limit aktif", "backend", cfg.Backend, "store", fmt.Sprintf("%T", store), "max", cfg.Max, "window", cfg.Window, "fail_open", cfg.FailOpen)
 
 	return middleware.NewRateLimit(store, middleware.RateLimitOptions{
 		Limit:    int64(cfg.Max),
@@ -248,4 +245,15 @@ func (a *App) GetLibraryManager() *LibraryManager {
 // GetSharedContext returns the shared dependencies
 func (a *App) GetSharedContext() *AppContext {
 	return a.Context
+}
+
+func (a *App) rateLimitStore(names ...string) (port.IRateLimitStore, bool) {
+	for _, name := range names {
+		if lib, ok := a.Context.GetSingletonInstance(name); ok {
+			if s, ok := lib.(port.IRateLimitStore); ok {
+				return s, true
+			}
+		}
+	}
+	return nil, false
 }
