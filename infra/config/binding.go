@@ -88,11 +88,14 @@ func (c *Config) SetEnvBindings() map[string]string {
 		"redis.db":       "REDIS_DB",
 
 		// Kafka
-		"kafka.enabled":      "KAFKA_ENABLED",
-		"kafka.brokers":      "KAFKA_BROKERS",
-		"kafka.group_id":     "KAFKA_GROUP_ID",
-		"kafka.topics":       "KAFKA_TOPICS",
-		"kafka.offset_reset": "KAFKA_AUTO_OFFSET_RESET",
+		"kafka.enabled":             "KAFKA_ENABLED",
+		"kafka.brokers":             "KAFKA_BROKERS",
+		"kafka.group_id":            "KAFKA_GROUP_ID",
+		"kafka.topics":              "KAFKA_TOPICS",
+		"kafka.offset_reset":        "KAFKA_AUTO_OFFSET_RESET",
+		"kafka.auto_commit":         "KAFKA_AUTO_COMMIT",
+		"kafka.auto_offset_store":   "KAFKA_AUTO_OFFSET_STORE",
+		"kafka.assignment_strategy": "KAFKA_ASSIGNMENT_STRATEGY",
 
 		// PubSub
 		"pubsub.project_id":     "PUBSUB_PROJECT_ID",

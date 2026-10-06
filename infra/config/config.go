@@ -115,11 +115,14 @@ type RedisConfig struct {
 }
 
 type KafkaConfig struct {
-	Enabled         bool     `mapstructure:"enabled"`
-	Brokers         []string `mapstructure:"brokers"`
-	GroupID         string   `mapstructure:"group_id"`
-	Topics          []string `mapstructure:"topics"`
-	AutoOffsetReset string   `mapstructure:"offset_reset"`
+	Enabled                     bool     `mapstructure:"enabled"`
+	Brokers                     []string `mapstructure:"brokers"`
+	GroupID                     string   `mapstructure:"group_id"`
+	Topics                      []string `mapstructure:"topics"`
+	AutoOffsetReset             string   `mapstructure:"offset_reset"`
+	AutoCommit                  bool     `mapstructure:"auto_commit"`
+	AutoOffsetStore             bool     `mapstructure:"auto_offset_store"`
+	PartitionAssignmentStrategy string   `mapstructure:"assignment_strategy"`
 }
 
 type GoogleCredential struct {

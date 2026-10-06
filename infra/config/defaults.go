@@ -84,11 +84,14 @@ func (c *Config) SetDefaults() map[string]any {
 		"redis.db":   0,
 
 		// Kafka
-		"kafka.enabled":      false,
-		"kafka.brokers":      []string{},
-		"kafka.group_id":     "",
-		"kafka.topics":       []string{},
-		"kafka.offset_reset": "earliest",
+		"kafka.enabled":             false,
+		"kafka.brokers":             []string{},
+		"kafka.group_id":            "",
+		"kafka.topics":              []string{},
+		"kafka.offset_reset":        "earliest",
+		"kafka.auto_commit":         true,
+		"kafka.auto_offset_store":   true,
+		"kafka.assignment_strategy": "range",
 
 		// PubSub
 		"pubsub.project_id":     "",
