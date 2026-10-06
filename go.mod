@@ -1,4 +1,4 @@
-module github.com/webcore-go/webcore
+module github.com/nersus15/webcore-go
 
 go 1.25.0
 
